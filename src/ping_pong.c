@@ -1,4 +1,4 @@
-// ping pong ball game @author : Zahin Bin Hasan
+// ping pong ball game @author : Zahin Bin Hasan!!!
 // works only with 2 players, no ai
 // for 1 player, use the ai function for the other player
 // controls : player 1 : W and S, player 2 : UP and DOWN
