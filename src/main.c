@@ -15,11 +15,13 @@ typedef struct Food
 {
     Vector2 pos;
     Texture2D texture;
+    Sound sound;
 } Food;
 
 void foodDraw(Food *food)
 {
     DrawTexture(food->texture, food->pos.x * CELL_SIZE, food->pos.y * CELL_SIZE, WHITE);
+  //  PlaySound(food->sound);
 }
 
 Vector2 randomPos()
@@ -34,7 +36,10 @@ Food createFood()
     Food f =
         {
             .pos = randomPos(),
-            .texture = LoadTexture("../assets/food.png")};
+            .texture = LoadTexture("../assets/food.png"),
+            .sound = LoadSound("../assets/foodpopup.wav")};
+
+    PlaySound(f.sound);
     return f;
 }
 // ending food struct
@@ -144,6 +149,9 @@ int main()
 {
     InitWindow(CELL_SIZE * CELL_COUNT, CELL_SIZE * CELL_COUNT, "SNAKE GAME");
     SetTargetFPS(60);
+    InitAudioDevice();
+    Sound eat = LoadSound("../assets/eat.ogg");
+    Sound die = LoadSound("../assets/die.ogg");
     int framecount = 0;
     int score = 0;
     Food food = createFood();
@@ -169,24 +177,40 @@ int main()
             if (checkCollision(&snake, &food))
             {
                 score++;
-
+                PlaySound(eat);
                 food.pos = randomPos();
+                PlaySound(food.sound);
+                snake.body[snake.length] = snake.body[snake.length - 1];
                 snake.length++;
             }
             if (checkSelfCollision(&snake) || wallCollision(&snake))
             {
                 gameOver = true;
+                PlaySound(die);
             }
         }
         else
         {
-            DrawText("GAME OVER", 300, 350, 40, BLACK);
-            DrawText(TextFormat("SCORE: %d", score), 300, 350 + 50, 40, BLACK);
+            ClearBackground(BLACK);
+            DrawText("GAME OVER", 300, 350, 40, WHITE);
+            DrawText(TextFormat("SCORE: %d", score), 300, 350 + 50, 40, WHITE);
+            DrawText("PRESS R TO RESTART",300,450,35,YELLOW);
+            if (IsKeyPressed(KEY_R))
+            {
+                gameOver = false;
+                score = 0;
+                initialSnake(&snake);
+                food.pos = randomPos();
+            }
+            
         }
         
 
         EndDrawing();
     }
     UnloadTexture(food.texture);
+    UnloadSound(eat);
+    UnloadSound(die);
+    UnloadSound(food.sound);
     CloseWindow();
 }
