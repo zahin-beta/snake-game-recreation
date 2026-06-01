@@ -3,6 +3,8 @@
 *.dll
 *.so
 *.dylib
+.github
+
 
 # --- Object files ---
 *.o

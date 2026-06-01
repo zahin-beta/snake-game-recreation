@@ -1,216 +1,65 @@
-// snake game remake in c
-//@author: Zahin Bin Hasan
-#include <raylib.h>
+#include "game.h"
+#include "raylib_api.h"
+#include "config.h"
+#include "log.h"
+#include "result.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <string.h>
 
-#define CELL_SIZE 30
-#define CELL_COUNT 25
-
-Color green = {173, 204, 96, 255};
-Color darkGreen = {43, 51, 24, 255};
-// food struct
-typedef struct Food
+static int GetAppDataPath(char *buf, int cap)
 {
-    Vector2 pos;
-    Texture2D texture;
-    Sound sound;
-} Food;
-
-void foodDraw(Food *food)
-{
-    DrawTexture(food->texture, food->pos.x * CELL_SIZE, food->pos.y * CELL_SIZE, WHITE);
-  //  PlaySound(food->sound);
+    const char *appdata = getenv("APPDATA");
+    if (!appdata) return -1;
+    snprintf(buf, cap, "%s/snake-game", appdata);
+    return 0;
 }
 
-Vector2 randomPos()
+int main(void)
 {
-    int x = GetRandomValue(0, CELL_COUNT - 1);
-    int y = GetRandomValue(0, CELL_COUNT - 1);
-    return (Vector2){x, y};
-}
+    // ---- paths ----
+    char configDir[260];
+    char configPath[260];
+    char logPath[260];
 
-Food createFood()
-{
-    Food f =
-        {
-            .pos = randomPos(),
-            .texture = LoadTexture("../assets/food.png"),
-            .sound = LoadSound("../assets/foodpopup.wav")};
-
-    PlaySound(f.sound);
-    return f;
-}
-// ending food struct
-
-// snake struct
-
-typedef struct Snake
-{
-    Vector2 body[100];
-    int length;
-    Vector2 direction;
-} Snake;
-void initialSnake(Snake *s)
-{
-    s->length = 3;
-    s->body[0] = (Vector2){CELL_COUNT / 2, CELL_COUNT / 2};
-    s->body[1] = (Vector2){CELL_COUNT / 2 - 1, CELL_COUNT / 2};
-    s->body[2] = (Vector2){CELL_COUNT / 2 - 2, CELL_COUNT / 2};
-    s->direction = (Vector2){1, 0};
-}
-
-void drawSnake(Snake *s)
-{
-    for (size_t i = 0; i < s->length; i++)
+    if (GetAppDataPath(configDir, sizeof(configDir)) == 0)
     {
-        DrawRectangle(s->body[i].x * CELL_SIZE, s->body[i].y * CELL_SIZE, CELL_SIZE, CELL_SIZE, darkGreen);
-    }
-}
-void input(Snake *s)
-{
-    if (IsKeyPressed(KEY_W) && s->direction.y != 1)
-    {
-        s->direction = (Vector2){0, -1};
-    }
-    if (IsKeyPressed(KEY_S) && s->direction.y != -1)
-    {
-        s->direction = (Vector2){0, 1};
-    }
-    if (IsKeyPressed(KEY_A) && s->direction.x != 1)
-    {
-        s->direction = (Vector2){-1, 0};
-    }
-    if (IsKeyPressed(KEY_D) && s->direction.x != -1)
-    {
-        s->direction = (Vector2){1, 0};
-    }
-}
-
-void snakeMovement(Snake *s)
-{
-    for (size_t i = s->length - 1; i > 0; i--)
-    {
-        s->body[i] = s->body[i - 1];
-    }
-    {
-        s->body[0].x += s->direction.x;
-        s->body[0].y += s->direction.y;
-    }
-}
-
-// ending snake struct
-
-// collision
-
-bool checkSelfCollision(Snake *s)
-{
-    for (size_t i = 1; i < s->length; i++)
-    {
-        if (s->body[0].x == s->body[i].x && s->body[0].y == s->body[i].y)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool wallCollision(Snake *s)
-{
-    if (s->body[0].x < 0 || s->body[0].x >= CELL_COUNT || s->body[0].y < 0 || s->body[0].y >= CELL_COUNT)
-    {
-        return true;
-    }
-    return false;
-}
-
-bool checkCollision(Snake *s, Food *f)
-{
-    if (s->body[0].x == f->pos.x && s->body[0].y == f->pos.y)
-    {
-        return true;
+        snprintf(configPath, sizeof(configPath), "%s/config.txt", configDir);
+        snprintf(logPath,    sizeof(logPath),    "%s/log.txt",    configDir);
     }
     else
     {
-        return false;
+        snprintf(configPath, sizeof(configPath), "config.txt");
+        snprintf(logPath,    sizeof(logPath),    "log.txt");
     }
-}
-//
-// text
-void drawScore(int *score)
-{
-    DrawText(TextFormat("SCORE: %d", *score), 20, 20, 30, BLACK);
-}
 
-//
+    // ---- init subsystems ----
+    LogInit(logPath);
+    LOG_INFO("Snake Game v2 starting");
 
-int main()
-{
-    InitWindow(CELL_SIZE * CELL_COUNT, CELL_SIZE * CELL_COUNT, "SNAKE GAME");
-    SetTargetFPS(60);
-    InitAudioDevice();
-    Sound eat = LoadSound("../assets/eat.ogg");
-    Sound die = LoadSound("../assets/die.ogg");
-    int framecount = 0;
-    int score = 0;
-    Food food = createFood();
-    Snake snake;
-    initialSnake(&snake);
-    bool gameOver = false;
-    while (!WindowShouldClose())
+    ConfigSetDefaults();
+    ConfigLoad(configPath);
+    ConfigApply();
+
+    // ---- load raylib ----
+    if (!LoadRaylib())
     {
-        BeginDrawing();
-        if (!gameOver)
-        {
-            framecount++;
-            input(&snake);
-            if (framecount == 10)
-            {
-                snakeMovement(&snake);
-                framecount = 0;
-            }
-            ClearBackground(green);
-            foodDraw(&food);
-            drawSnake(&snake);
-            drawScore(&score);
-            if (checkCollision(&snake, &food))
-            {
-                score++;
-                PlaySound(eat);
-                food.pos = randomPos();
-                PlaySound(food.sound);
-                snake.body[snake.length] = snake.body[snake.length - 1];
-                snake.length++;
-            }
-            if (checkSelfCollision(&snake) || wallCollision(&snake))
-            {
-                gameOver = true;
-                PlaySound(die);
-            }
-        }
-        else
-        {
-            ClearBackground(BLACK);
-            DrawText("GAME OVER", 300, 350, 40, WHITE);
-            DrawText(TextFormat("SCORE: %d", score), 300, 350 + 50, 40, WHITE);
-            DrawText("PRESS R TO RESTART",300,450,35,YELLOW);
-            if (IsKeyPressed(KEY_R))
-            {
-                gameOver = false;
-                score = 0;
-                initialSnake(&snake);
-                food.pos = randomPos();
-            }
-            
-        }
-        
-
-        EndDrawing();
+        LOG_ERROR("Failed to load raylib DLL");
+        LogShutdown();
+        return 1;
     }
-    UnloadTexture(food.texture);
-    UnloadSound(eat);
-    UnloadSound(die);
-    UnloadSound(food.sound);
-    CloseWindow();
+    LOG_INFO("Raylib loaded successfully");
+
+    // ---- run game ----
+    Game game;
+    InitGame(&game);
+    RunGame(&game);
+    UnloadGame(&game);
+
+    // ---- shutdown ----
+    UnloadRaylib();
+    ConfigSave(configPath);
+    LOG_INFO("Shutdown complete");
+    LogShutdown();
+    return 0;
 }
